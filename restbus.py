@@ -27,4 +27,6 @@ def subscribe(sub_id):
     bus.subscribe(sub_id, signature_dict.get("interface"), 
         signature_dict.get("labels"), signature_dict.get("consume"))
 
+
+
 run(host='localhost', port=8000)
