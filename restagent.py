@@ -7,10 +7,14 @@ class RestBusClient:
         self.url = url
 
     def publish(self, message):
-        requests.put(self.url + 'pub/' + '.'.join(message.signature.interface),
+        res = requests.put(self.url + 'pub/' + '.'.join(message.signature.interface),
                         json={'labels': message.signature.labels,
                                 'payload': message.payload,
                                 'source': str(message.source)})
+        if res.ok:
+            return True
+        else:
+            return False
 
     def subscribe(self, subscriber_id, interface=None, labels=None, consume=True):
         requests.put(self.url + "sub/" + str(subscriber_id),

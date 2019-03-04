@@ -18,12 +18,12 @@ class Bus:
                 continue
             elif self.queues[sub].put_if_match(message) and self.queues[sub].consume:
                 consumed = True
+        return consumed
 
     def subscribe(self, subscriber_id, interface=None, labels=None, consume=True):
         sig = Signature(interface,labels)
         if subscriber_id not in self.queues:
             self.queues[subscriber_id] = SubscriberQueue([sig], consume=consume)
-            # print(f"{subscriber_id} [NEW] subscribed to {sig}")
             self.publish(DebugMessage(f"{subscriber_id} [NEW] subscribed to {sig}"))
         else:
             self.queues[subscriber_id].append(sig)
@@ -170,7 +170,7 @@ class Agent(threading.Thread):
             labels.update(self.labels)
         else:
             labels = self.labels
-        self.bus.publish(Message(payload=payload, signature=Signature(interface, labels), source=self.uuid))
+        return self.bus.publish(Message(payload=payload, signature=Signature(interface, labels), source=self.uuid))
 
 
 class AgentPool:

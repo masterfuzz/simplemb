@@ -19,7 +19,8 @@ def poll(sub_id):
 def publish(interface):
     message_dict = request.json
     message_dict['interface'] = interface
-    bus.publish(simplequeue.Message.from_dict(message_dict))
+    if not bus.publish(simplequeue.Message.from_dict(message_dict)):
+        abort()
 
 @put('/sub/<sub_id>')
 def subscribe(sub_id):
