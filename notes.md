@@ -50,3 +50,8 @@ a subscriber could subscribe to LoggedInUser.UUID and receive these objects.
 A requester could post User.Authenticate and a replier on the interface User should be able to respond.
 
 
+----
+
+request -> special publish
+-> reply (special subscribe) -> special publish
+-> accept (special subscribe)

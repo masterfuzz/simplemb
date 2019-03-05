@@ -19,7 +19,10 @@ def poll(sub_id):
 def publish(interface):
     message_dict = request.json
     message_dict['interface'] = interface
-    if not bus.publish(simplequeue.Message.from_dict(message_dict)):
+    msg = simplequeue.Message.from_dict(message_dict)
+    print(f"publish {msg}")
+    if not bus.publish(msg):
+        print("failed")
         abort()
 
 @put('/sub/<sub_id>')

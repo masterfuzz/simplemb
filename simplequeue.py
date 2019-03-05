@@ -58,6 +58,10 @@ class Signature:
     def __repr__(self):
         return f"SIG[{'.'.join(self.interface)}]{self.labels}"
 
+    def __str__(self):
+        labels = ", ".join(f"{k}={v}" for k,v in self.labels.items())
+        return f"{'.'.join(self.interface)}({labels})"
+
 class SubscriberQueue(queue.Queue):
     def __init__(self, sigs=None, consume=True, maxsize=0):
         super().__init__(maxsize)
@@ -87,7 +91,10 @@ class Message:
         self.source = source
 
     def __repr__(self):
-        return f"<msg({self.signature})>"
+        return f"<msg({repr(self.signature)})>"
+    
+    def __str__(self):
+        return f"{self.source}:{self.signature}<{self.payload}>"
 
     @classmethod
     def from_dict(cls, data):
@@ -106,7 +113,7 @@ class DebugMessage(Message):
         super().__init__(msg, Signature("DEBUG"), source="ROOT")
 
 class Agent(threading.Thread):
-    def __init__(self, bus, labels=None):
+    def __init__(self, bus, labels=None, name=None):
         super().__init__()
         self.bus = bus
         self.uuid = str(uuid.uuid1())
@@ -116,6 +123,11 @@ class Agent(threading.Thread):
         self.min_sleep = 0.1
         self.cur_sleep = self.min_sleep
         self.labels = labels if labels else {}
+        if name:
+            self.set_name(name)
+
+    def set_name(self, name):
+        self.labels['name'] = name
 
     def _handle_agent_calls(self, msg):
         if len(msg.signature.interface) != 2:
@@ -164,6 +176,26 @@ class Agent(threading.Thread):
             self.subscribe(interface, func, labels, consume)
             return wrap
         return decorator
+
+    def reply(self, interface):
+        def decorator(func):
+            def wrap(msg):
+                print(f"reply wrap function called on {msg}")
+                self.publish(interface+'.Result',
+                     func(msg),
+                     labels={'reqID': msg.signature.labels['reqID']}
+                    )
+            print(f"reply inner decorator called on {func}")
+            self.subscribe(interface, wrap)
+            return wrap
+        print(f"reply outer decorator called for {interface}")
+        return decorator
+
+    def request(self, interface, callback, payload=None):
+        reqID = str(uuid.uuid4())
+        self.subscribe(interface+'.Result', callback, labels={'reqID': reqID})
+        self.publish(interface, payload, {'reqID': reqID})
+        return reqID
 
     def publish(self, interface, payload=None, labels=None):
         if labels:
