@@ -40,20 +40,25 @@ class Signature:
         self.uuid = str(uuid.uuid1())
 
     def match(self, sig):
-        # A match A
-        # A.B match A
-        # A.B.C match A.B
-        interface_match = True
-        if self.interface is None or len(self.interface) == 0:
-            interface_match = True
-        elif len(sig.interface) < len(self.interface):
-            interface_match = False
+        return (self._imatch(self.interface, sig.interface) 
+                and all(sig.labels.get(k) == v for k,v in self.labels.items()))
+
+    def _imatch(self, pat, bod):
+        if pat is None or bod is None:
+            return True
+        if len(pat) == 0:
+            if len(bod) == 0:
+                return True
+            else:
+                return False
+        if len(bod) == 0:
+            return False
+        if pat[0] == "**":
+            return True
+        if pat[0] == "*" or pat[0] == bod[0]:
+            return self._imatch(pat[1:], bod[1:])
         else:
-            for i in range(len(self.interface)):
-                if self.interface[i] != sig.interface[i]:
-                    interface_match = False
-                    break
-        return interface_match and all(sig.labels.get(k) == v for k,v in self.labels.items())
+            return False
 
     def __repr__(self):
         return f"SIG[{'.'.join(self.interface)}]{self.labels}"
@@ -141,7 +146,7 @@ class Agent(threading.Thread):
 
     def run(self):
         self.publish("Log", "Begin polling")
-        self.subscribe("Agent", func=self._handle_agent_calls, labels={'agentUUID': self.uuid})
+        self.subscribe("Agent.**", func=self._handle_agent_calls, labels={'agentUUID': self.uuid})
         while self.live:
             try:
                 msg = self.bus.poll(self.uuid)
