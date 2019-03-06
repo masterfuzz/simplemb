@@ -1,3 +1,4 @@
+from .signature import Signature
 import threading
 import uuid
 

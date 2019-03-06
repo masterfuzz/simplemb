@@ -2,7 +2,7 @@ from ..bus import Bus
 from ..message import Message
 
 import queue
-from bottle import get, put, run, request, abort
+from bottle import get, put, request, abort
 
 bus = Bus()
 
@@ -33,6 +33,9 @@ def subscribe(sub_id):
     bus.subscribe(sub_id, signature_dict.get("interface"), 
         signature_dict.get("labels"), signature_dict.get("consume"))
 
+def run(host='localhost', port=8000):
+    bottle.run(host=host, port=port)
 
 
-run(host='localhost', port=8000)
+if __name__ == "__main__":
+    run()
