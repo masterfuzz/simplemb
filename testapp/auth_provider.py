@@ -1,7 +1,7 @@
-import restagent
+import simplemb.rest
 import uuid
 
-agent = restagent.RestAgent("http://localhost:8000/", name="auth")
+agent = simplemb.rest.RestAgent("http://localhost:8000/", name="auth")
 
 auth_table = {
     'bob': 'bob',

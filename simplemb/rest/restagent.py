@@ -1,4 +1,5 @@
-import simplequeue
+from ..agent import Agent
+from ..message import Message
 import requests
 import queue
 import time
@@ -46,7 +47,7 @@ class RestBusClient:
         try:
             res = requests.get(self.url + f"poll/{subscriber_id}")
             if res.ok:
-                return simplequeue.Message.from_dict(res.json())
+                return Message.from_dict(res.json())
             else:
                 raise queue.Empty()
         except queue.Empty:
@@ -55,6 +56,6 @@ class RestBusClient:
             print("exception communicating with the bus")
             raise queue.Empty() from e
 
-class RestAgent(simplequeue.Agent):
+class RestAgent(Agent):
     def __init__(self, url, labels=None, name=None):
         super().__init__(RestBusClient(url), labels=labels, name=name)

@@ -1,8 +1,10 @@
-import simplequeue
+from ..bus import Bus
+from ..message import Message
+
 import queue
 from bottle import get, put, run, request, abort
 
-bus = simplequeue.Bus()
+bus = Bus()
 
 @get('/poll/<sub_id>')
 def poll(sub_id):
@@ -19,7 +21,7 @@ def poll(sub_id):
 def publish(interface):
     message_dict = request.json
     message_dict['interface'] = interface
-    msg = simplequeue.Message.from_dict(message_dict)
+    msg = Message.from_dict(message_dict)
     print(f"publish {msg}")
     if not bus.publish(msg):
         print("failed")
