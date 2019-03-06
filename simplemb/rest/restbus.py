@@ -1,7 +1,8 @@
-from ..bus import Bus
+from ..bus import Bus, NoSubscriptionError
 from ..message import Message
 
 import queue
+import bottle
 from bottle import get, put, request, abort
 
 bus = Bus()
@@ -14,6 +15,8 @@ def poll(sub_id):
             return res.to_dict()
         else:
             abort(code=404)
+    except NoSubscriptionError:
+        abort(code=405)
     except queue.Empty:
         abort(code=404)
 

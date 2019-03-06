@@ -53,6 +53,4 @@ def validate(msg):
         print("token invalid")
         return False
 
-agent.start()
-print(f"Started uuid={agent.uuid}")
-agent.join()
+agent.run()

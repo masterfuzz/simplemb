@@ -1,6 +1,6 @@
-import restagent
+from simplemb.rest.restagent import RestAgent
 
-logger = restagent.RestAgent("http://localhost:8000/", name="logger")
+logger = RestAgent("http://localhost:8000/", name="logger")
 
 @logger.sub("**", consume=False)
 def log(msg):

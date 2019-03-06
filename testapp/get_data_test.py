@@ -1,6 +1,6 @@
-import restagent
+from simplemb.rest.restagent import RestAgent
 
-agent = restagent.RestAgent("http://localhost:8000/", name="client")
+agent = RestAgent("http://localhost:8000/", name="client")
 
 # my state
 token = None
@@ -22,6 +22,4 @@ request_id = agent.request("Auth.Login", payload="bob/bob", callback=login_resul
 
 print(f"Made login request f{request_id}")
 
-agent.start()
-
-agent.join()
+agent.run()

@@ -5,6 +5,7 @@ class Message:
         self.signature = signature
         self.payload = payload
         self.source = source
+        self.seen = {}
 
     def __repr__(self):
         return f"<msg({repr(self.signature)})>"

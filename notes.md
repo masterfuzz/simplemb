@@ -55,3 +55,20 @@ A requester could post User.Authenticate and a replier on the interface User sho
 request -> special publish
 -> reply (special subscribe) -> special publish
 -> accept (special subscribe)
+
+---
+
+match queue:
+
+Each subscription is a Path + Labels
+Match = PathMatch and LabelMatch
+PathMatch:
+    A.B match A.B
+    A.* match A.[anything]
+    A.** match A.[any list]
+LabelMatch:
+    all labels exist and are the same. additional labels may exist in the message
+
+One queue per "different" subscription.
+    a subscription is different if the Path and the Labels are different
+    
