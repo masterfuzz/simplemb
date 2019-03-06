@@ -21,10 +21,10 @@ class Bus:
                 queued = True
 
         if not queued:
-            print(f"no queue matched. created")
+            print(f"no consumer queue matched. created")
             mq = MatchQueue(Signature(message.signature.interface))
             mq.put(message)
-            self.queues.append(mq)
+            self.consumer_queues.append(mq)
 
         # observers
         for sub in self.subscribers.values():
@@ -32,13 +32,13 @@ class Bus:
 
         return consumed
 
-    def subscribe(self, subscriber_id, interface=None, labels=None, observe=False):
+    def subscribe(self, subscriber_id, interface=None, labels=None, consume=True):
         signature = Signature(interface, labels)
         if subscriber_id not in self.subscribers:
             print(f"new subscriber {subscriber_id}")
             self.subscribers[subscriber_id] = Subscriber()
         subscriber = self.subscribers[subscriber_id]
-        if observe:
+        if not consume:
             subscriber.add_observer_signature(signature)
         else:
             subscriber.add_consumer_signature(signature)

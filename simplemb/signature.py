@@ -3,7 +3,13 @@ import uuid
 class Signature:
     def __init__(self, interface, labels=None):
         self.labels = labels.copy() if labels else {}
-        self.interface = interface.split('.') if interface else []
+        if interface:
+            if type(interface) == list:
+                self.interface = interface.copy()
+            else:
+                self.interface = interface.split('.')
+        else:
+            self.interface = []
         self.uuid = str(uuid.uuid1())
 
     def match(self, sig):

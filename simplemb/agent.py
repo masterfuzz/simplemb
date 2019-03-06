@@ -1,5 +1,6 @@
 from .signature import Signature
 from .message import Message
+from .bus import NoSubscriptionError
 import queue
 import threading
 import uuid
@@ -46,6 +47,9 @@ class Agent(threading.Thread):
                 else:
                     self.sleep()
             except queue.Empty:
+                self.sleep()
+            except NoSubscriptionError:
+                print("NoSubscription!")
                 self.sleep()
 
     def stop(self):
