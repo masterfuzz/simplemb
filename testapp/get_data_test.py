@@ -1,25 +1,25 @@
 from simplemb.rest.restagent import RestAgent
 
 agent = RestAgent("http://localhost:8000/", name="client")
+agent.start()
 
-# my state
-token = None
-data = None
-
-def login_result(msg):
-    if msg.payload:
-        token = msg.payload
+def login():
+    req = agent.request("Auth.Login", payload="bob/bob")
+    print(f"Made login request f{req.request_id}")
+    result = req.join()
+    if result.payload:
+        return result.payload
     else:
         print("login failed")
         agent.stop()
-        return
-    print("do some things...")
-    agent.stop()
+        raise Exception
+
+def do_stuff(token):
+    print(agent.request("db.get.hello", labels={'token': token}).join())
 
 
+token = login()
+do_stuff(token)
 
-request_id = agent.request("Auth.Login", payload="bob/bob", callback=login_result)
+agent.stop()
 
-print(f"Made login request f{request_id}")
-
-agent.run()

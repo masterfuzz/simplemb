@@ -78,7 +78,7 @@ class Agent(threading.Thread):
         def decorator(func):
             def wrap(msg):
                 print(f"reply wrap function called on {msg}")
-                self.publish(interface+'.Result',
+                self.publish(msg.signature.interface+['Result'],
                      func(msg),
                      labels={'reqID': msg.signature.labels['reqID']}
                     )
@@ -88,11 +88,13 @@ class Agent(threading.Thread):
         print(f"reply outer decorator called for {interface}")
         return decorator
 
-    def request(self, interface, callback, payload=None):
-        reqID = str(uuid.uuid4())
-        self.subscribe(interface+'.Result', callback, labels={'reqID': reqID})
-        self.publish(interface, payload, {'reqID': reqID})
-        return reqID
+    def request(self, interface, callback=None, payload=None, labels=None):
+        req = Request(callback=callback)
+        labels = labels if labels else {}
+        labels['reqID'] = req.request_id
+        self.subscribe(interface+'.Result', req.set_result, labels={'reqID': req.request_id})
+        self.publish(interface, payload, labels=labels)
+        return req
 
     def publish(self, interface, payload=None, labels=None):
         if labels:
@@ -121,3 +123,29 @@ class AgentPool:
     def join(self):
         for a in self.pool:
             a.join()
+
+class Request:
+    def __init__(self, callback=None, request_id=None):
+        self.request_id = request_id if request_id else str(uuid.uuid4())
+        self.result = None
+        self.ready = False
+        self.callback = callback
+
+    def set_result(self, result):
+        self.result = result
+        self.ready = True
+        if self.callback:
+            self.callback(result)
+
+    def set_callback(self, callback):
+        self.callback = callback
+
+    def join(self):
+        while True:
+            if self.ready:
+                return self.result
+            print("request not received. waiting")
+            time.sleep(0.1)
+
+    def __str__(self):
+        return f"Request({self.request_id})"

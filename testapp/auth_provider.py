@@ -30,11 +30,12 @@ class UserPass:
 
 @agent.reply("Auth.Login")
 def auth(msg):
+    print(f"login request {msg}")
     up = None
     try:
         up = UserPass.deserialize(msg)
     except:
-        print(f"malformed login request {msg}")
+        print(f"malformed login request")
         return None
 
     if auth_table.get(up.user) == up.password:
@@ -46,6 +47,7 @@ def auth(msg):
 
 @agent.reply("Auth.Validate")
 def validate(msg):
+    print(f"validation request {msg}")
     if msg.payload in tokens:
         print("token valid")
         return True

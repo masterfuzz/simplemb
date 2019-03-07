@@ -17,18 +17,20 @@ class Bus:
         queued = False
         for mq in self.consumer_queues:
             if mq.put_if_match(message):
+                print(f"publish {message} to {mq}")
                 consumed = True
                 queued = True
 
         if not queued:
-            print(f"no consumer queue matched. created")
+            print(f"publish {message} to new consumer queue")
             mq = MatchQueue(Signature(message.signature.interface))
             mq.put(message)
             self.consumer_queues.append(mq)
 
         # observers
         for sub in self.subscribers.values():
-            sub.observe(message)
+            if sub.observe(message):
+                print(f"published {message} to observer {sub.uuid}")
 
         return consumed
 
@@ -40,12 +42,14 @@ class Bus:
         subscriber = self.subscribers[subscriber_id]
         if not consume:
             subscriber.add_observer_signature(signature)
+            print(f"{subscriber.uuid} observing {signature}")
         else:
             subscriber.add_consumer_signature(signature)
             for mq in self.consumer_queues:
                 if mq.same(signature):
                     return
             self.consumer_queues.append(MatchQueue(signature))
+            print(f"{subscriber.uuid} consuming {signature}")
 
     def poll(self, subscriber_id, block=False):
         if subscriber_id not in self.subscribers:
@@ -100,7 +104,8 @@ class Subscriber:
     def observe(self, msg):
         for mq in self.observer_queues:
             if mq.put_if_match(msg):
-                return
+                return True
+        return False
     
     def get_observed(self):
         for mq in self.observer_queues:
