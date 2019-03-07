@@ -28,9 +28,9 @@ class Bus:
             self.consumer_queues.append(mq)
 
         # observers
-        for sub in self.subscribers.values():
+        for key, sub in self.subscribers.items():
             if sub.observe(message):
-                print(f"published {message} to observer {sub.uuid}")
+                print(f"published {message} to observer {key}")
 
         return consumed
 
@@ -49,7 +49,7 @@ class Bus:
                 if mq.same(signature):
                     return
             self.consumer_queues.append(MatchQueue(signature))
-            print(f"{subscriber.uuid} consuming {signature}")
+            print(f"{subscriber_id} consuming {signature}")
 
     def poll(self, subscriber_id, block=False):
         if subscriber_id not in self.subscribers:
@@ -59,7 +59,9 @@ class Bus:
         for mq in self.consumer_queues:
             if subscriber.match(mq):
                 try:
-                    return mq.get_nowait()
+                    res = mq.get_nowait()
+                    print(f"send {res} to {subscriber_id}")
+                    return res
                 except queue.Empty:
                     continue
         
@@ -85,7 +87,7 @@ class MatchQueue(queue.Queue):
         return self.sig.interface == sig.interface and self.sig.labels == sig.labels
 
     def __repr__(self):
-        return f"MQ({self.sig},{self.consume})"
+        return f"MQ({self.sig})"
 
 class Subscriber:
     def __init__(self, sigs=None):

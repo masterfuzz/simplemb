@@ -1,7 +1,9 @@
 from simplemb.rest import RestAgent
 
 agent = RestAgent("http://localhost:8000/", name="db")
+validator = RestAgent("http://localhost:8000/", name="db.validator")
 agent.start()
+validator.start()
 
 data = {
     "hello": "world",
@@ -16,9 +18,11 @@ def get(msg):
     if not token:
         print("malformed request")
         return None
-    req = agent.request("Auth.Validate", payload=token)
+
+    req = validator.request("Auth.Validate", payload=token)
     print(f"made request to validate token {req}")
     res = req.join()
+
     if not res.payload:
         print(f"auth responded with invalid token {res}")
         return None
@@ -28,3 +32,4 @@ def get(msg):
         return data.get(field)
     else:
         print(f"not sure how you didn't have a field")
+

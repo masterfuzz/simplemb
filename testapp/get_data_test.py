@@ -15,7 +15,7 @@ def login():
         raise Exception
 
 def do_stuff(token):
-    print(agent.request("db.get.hello", labels={'token': token}).join())
+    print("hello " + agent.request("db.get.hello", labels={'token': token}).join().payload)
 
 
 token = login()
