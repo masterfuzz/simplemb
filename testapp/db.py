@@ -1,9 +1,8 @@
 from simplemb.rest import RestAgent
 
 agent = RestAgent("http://localhost:8000/", name="db")
-validator = RestAgent("http://localhost:8000/", name="db.validator")
+# validator = RestAgent("http://localhost:8000/", name="db.validator")
 agent.start()
-validator.start()
 
 data = {
     "hello": "world",
@@ -19,7 +18,7 @@ def get(msg):
         print("malformed request")
         return None
 
-    req = validator.request("Auth.Validate", payload=token)
+    req = agent.request("Auth.Validate", payload=token)
     print(f"made request to validate token {req}")
     res = req.join()
 

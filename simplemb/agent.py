@@ -42,7 +42,7 @@ class Agent(threading.Thread):
                 if msg:
                     for sig, callback in self.sigs:
                         if sig.match(msg.signature):
-                            callback(msg)
+                            self._do_callback(callback, msg)
                     self.cur_sleep = self.min_sleep
                 else:
                     self.sleep()
@@ -52,6 +52,11 @@ class Agent(threading.Thread):
             except NoSubscriptionError:
                 print("NoSubscription!")
                 self.sleep()
+
+    def _do_callback(self, callback, message):
+        thread = threading.Thread(target=callback, args=(message,))
+        thread.start()
+        print(f"callback thread started {thread}")
 
     def stop(self):
         self.live = False
@@ -137,9 +142,6 @@ class Request:
         self.ready = True
         if self.callback:
             self.callback(result)
-
-    def set_callback(self, callback):
-        self.callback = callback
 
     def join(self):
         while True:
