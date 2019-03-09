@@ -14,11 +14,11 @@ def poll(sub_id):
         if res:
             return res.to_dict()
         else:
-            abort(code=404)
+            abort(code=500)
     except NoSubscriptionError:
-        abort(code=405)
-    except queue.Empty:
         abort(code=404)
+    except queue.Empty:
+        abort(code=304)
 
 @put('/pub/<interface>')
 def publish(interface):

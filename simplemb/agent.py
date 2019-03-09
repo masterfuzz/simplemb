@@ -17,6 +17,7 @@ class Agent(threading.Thread):
         self.min_sleep = 0.1
         self.cur_sleep = self.min_sleep
         self.labels = labels if labels else {}
+        self.auto_resubscribe = True
         if name:
             self.set_name(name)
 
@@ -51,6 +52,8 @@ class Agent(threading.Thread):
                 self.sleep()
             except NoSubscriptionError:
                 print("NoSubscription!")
+                if self.auto_resubscribe:
+                    self.resubscribe()
                 self.sleep()
 
     def _do_callback(self, callback, message):
@@ -67,10 +70,16 @@ class Agent(threading.Thread):
         self.cur_sleep = min(self.max_backoff, self.cur_sleep*2)
 
     def subscribe(self, interface, func, labels=None, consume=True):
-        sig = Signature(interface, labels)
+        sig = Signature(interface, labels, consume=consume)
         self.sigs.append((sig, func))
-        self.bus.subscribe(self.uuid, interface, labels, consume)
+        self._send_subscription(sig)
+
+    def _send_subscription(self, sig):
+        self.bus.subscribe(self.uuid, sig.interface, sig.labels, sig.consume)
         
+    def resubscribe(self):
+        for sig, _ in self.sigs:
+            self._send_subscription(sig)
 
     def sub(self, interface, labels=None, consume=True):
         def decorator(func):
@@ -83,15 +92,12 @@ class Agent(threading.Thread):
     def reply(self, interface):
         def decorator(func):
             def wrap(msg):
-                print(f"reply wrap function called on {msg}")
                 self.publish(msg.signature.interface+['Result'],
                      func(msg),
                      labels={'reqID': msg.signature.labels['reqID']}
                     )
-            print(f"reply inner decorator called on {func}")
             self.subscribe(interface, wrap)
             return wrap
-        print(f"reply outer decorator called for {interface}")
         return decorator
 
     def request(self, interface, callback=None, payload=None, labels=None):

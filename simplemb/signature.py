@@ -1,8 +1,9 @@
 import uuid
 
 class Signature:
-    def __init__(self, interface, labels=None):
+    def __init__(self, interface, labels=None, consume=None):
         self.labels = labels.copy() if labels else {}
+        self.consume = bool(consume)
         if interface:
             if type(interface) == list:
                 self.interface = interface.copy()

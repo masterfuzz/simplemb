@@ -1,5 +1,6 @@
 from ..agent import Agent
 from ..message import Message
+from ..bus import NoSubscriptionError
 import requests
 import queue
 import time
@@ -46,15 +47,19 @@ class RestBusClient:
     def poll(self, subscriber_id, block=True):
         try:
             res = requests.get(self.url + f"poll/{subscriber_id}")
-            if res.ok:
-                return Message.from_dict(res.json())
-            else:
-                raise queue.Empty()
-        except queue.Empty:
-            raise queue.Empty()
         except Exception as e:
             print("exception communicating with the bus")
             raise queue.Empty() from e
+
+        if res.status_code == 304:
+            raise queue.Empty()
+        elif res.ok:
+            return Message.from_dict(res.json())
+        elif res.status_code == 404:
+            raise NoSubscriptionError()
+        else:
+            print("exception communicating with the bus")
+            raise queue.Empty() from Exception(f"{res}")
 
 class RestAgent(Agent):
     def __init__(self, url, labels=None, name=None):

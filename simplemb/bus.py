@@ -38,7 +38,7 @@ class Bus:
         signature = Signature(interface, labels)
         if subscriber_id not in self.subscribers:
             print(f"new subscriber {subscriber_id}")
-            self.subscribers[subscriber_id] = Subscriber()
+            self.subscribers[subscriber_id] = Subscriber(subscriber_id)
         subscriber = self.subscribers[subscriber_id]
         if not consume:
             subscriber.add_observer_signature(signature)
@@ -90,9 +90,10 @@ class MatchQueue(queue.Queue):
         return f"MQ({self.sig})"
 
 class Subscriber:
-    def __init__(self, sigs=None):
+    def __init__(self, uuid, sigs=None):
         self.sigs = sigs if sigs else []
         self.observer_queues = []
+        self.uuid = uuid
 
     def add_consumer_signature(self, signature):
         self.sigs.append(signature)
