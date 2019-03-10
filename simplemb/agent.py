@@ -13,7 +13,7 @@ class Agent(threading.Thread):
         self.uuid = str(uuid.uuid1())
         self.sigs = []
         self.live = True
-        self.max_backoff = 10.0
+        self.max_backoff = 5.0
         self.min_sleep = 0.1
         self.cur_sleep = self.min_sleep
         self.labels = labels if labels else {}
@@ -48,7 +48,7 @@ class Agent(threading.Thread):
                 else:
                     self.sleep()
             except queue.Empty:
-                print(f"empty queue sleep {self.cur_sleep}")
+                #print(f"empty queue sleep {self.cur_sleep}")
                 self.sleep()
             except NoSubscriptionError:
                 print("NoSubscription!")

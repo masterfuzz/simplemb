@@ -60,6 +60,7 @@ class Bus:
             if subscriber.match(mq):
                 try:
                     res = mq.get_nowait()
+                    mq.last_hit = time.time()
                     print(f"send {res} to {subscriber_id}")
                     return res
                 except queue.Empty:
@@ -72,6 +73,7 @@ class MatchQueue(queue.Queue):
     def __init__(self, sig, maxsize=0):
         super().__init__(maxsize)
         self.sig = sig
+        self.last_hit = time.time()
 
     def put_if_match(self, message):
         if self.match(message):
@@ -90,15 +92,21 @@ class MatchQueue(queue.Queue):
         return f"MQ({self.sig})"
 
 class Subscriber:
-    def __init__(self, uuid, sigs=None):
+    def __init__(self, uuid, sigs=None, name=None):
         self.sigs = sigs if sigs else []
         self.observer_queues = []
         self.uuid = uuid
+        self.name = name
+        self.created = time.time()
+        self.updated = self.created
+        self.polled = self.created
 
     def add_consumer_signature(self, signature):
+        self.updated = time.time()
         self.sigs.append(signature)
 
     def add_observer_signature(self, signature):
+        self.updated = time.time()
         self.observer_queues.append(MatchQueue(signature))
     
     def match(self, mq):
@@ -113,7 +121,9 @@ class Subscriber:
     def get_observed(self):
         for mq in self.observer_queues:
             try:
-                return mq.get_nowait()
+                msg = mq.get_nowait()
+                self.polled = time.time()
+                return msg
             except queue.Empty:
                 continue
         raise queue.Empty()

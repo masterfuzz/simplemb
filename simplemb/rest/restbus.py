@@ -1,11 +1,14 @@
 from ..bus import Bus, NoSubscriptionError
 from ..message import Message
+from ..busctl import BusCtlAgent
 
 import queue
 import bottle
 from bottle import get, put, request, abort
 
 bus = Bus()
+busctl = BusCtlAgent(bus)
+busctl.start()
 
 @get('/poll/<sub_id>')
 def poll(sub_id):
