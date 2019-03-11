@@ -13,8 +13,8 @@ class Agent(threading.Thread):
         self.uuid = str(uuid.uuid1())
         self.sigs = []
         self.live = True
-        self.max_backoff = 5.0
-        self.min_sleep = 0.1
+        self.max_backoff = 0.1
+        self.min_sleep = 0.01
         self.cur_sleep = self.min_sleep
         self.labels = labels if labels else {}
         self.auto_resubscribe = True
@@ -92,7 +92,7 @@ class Agent(threading.Thread):
     def reply(self, interface):
         def decorator(func):
             def wrap(msg):
-                self.publish(msg.signature.interface+['Result'],
+                self.publish(['RESULT'] + msg.signature.interface,
                      func(msg),
                      labels={'reqID': msg.signature.labels['reqID']}
                     )
@@ -104,7 +104,7 @@ class Agent(threading.Thread):
         req = Request(callback=callback)
         labels = labels if labels else {}
         labels['reqID'] = req.request_id
-        self.subscribe(interface+'.Result', req.set_result, labels={'reqID': req.request_id})
+        self.subscribe('RESULT.'+interface, req.set_result, labels={'reqID': req.request_id})
         self.publish(interface, payload, labels=labels)
         return req
 
@@ -114,6 +114,34 @@ class Agent(threading.Thread):
         else:
             labels = self.labels
         return self.bus.publish(Message(payload=payload, signature=Signature(interface, labels), source=self.uuid))
+
+class RemoteAgent:
+    def __init__(self, coagent, name):
+        self.name = name
+        self.coagent = coagent
+
+    def _request(self, interface, payload=None, labels=None):
+        return self.coagent.request(self.name + "." + interface, payload=payload, labels=labels)
+
+    def _publish(self, interface, payload=None, labels=None):
+        return self.coagent.publish(self.name + "." + interface, payload, labels)
+
+    def __getattr__(self, attr):
+        return RemoteCall(self.coagent, self.name + "." + attr)
+
+class RemoteCall:
+    def __init__(self, coagent, interface):
+        self.coagent = coagent
+        self.interface = interface
+
+    def __call__(self, payload=None, **labels):
+        self.coagent.publish(self.interface, payload=payload, labels=labels)
+
+    def request(self, payload=None, **labels):
+        return self.coagent.request(self.interface, payload=payload, labels=labels)
+
+    def __getattr__(self, attr):
+        return RemoteCall(self.coagent, self.interface + '.' + attr)
 
 
 class AgentPool:

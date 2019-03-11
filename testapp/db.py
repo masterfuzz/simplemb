@@ -1,34 +1,36 @@
 from simplemb.rest import RestAgent
+import json
+
+with open("db.json") as fp:
+    data = json.load(fp)
 
 agent = RestAgent("http://localhost:8000/", name="db")
-# validator = RestAgent("http://localhost:8000/", name="db.validator")
 agent.start()
-
-data = {
-    "hello": "world",
-    "other": "things"
-}
 
 @agent.reply("db.get.*")
 def get(msg):
-    # validate token
     print(f"got request {msg}")
-    token = msg.signature.labels.get('token')
-    if not token:
-        print("malformed request")
-        return None
+    def _get(tree, path):
+        if len(path) == 1:
+            return tree[path[0]]
+        else:
+            return _get(tree[path[0]], path[1:]) 
+    return _get(data, msg.signature.interface[2:])
 
-    req = agent.request("Auth.Validate", payload=token)
-    print(f"made request to validate token {req}")
-    res = req.join()
+@agent.sub("db.set.**")
+def set_key(msg):
+    def _set(tree, path, val):
+        if len(path) == 1:
+            tree[path[0]] = val
+        else:
+            if path[0] not in tree:
+                tree[path[0]] = {}
+            _set(tree[path[0]], path[1:], val)
+        
+    _set(data, msg.signature.interface[2:], msg.payload)
 
-    if not res.payload:
-        print(f"auth responded with invalid token {res}")
-        return None
-    field = msg.signature.interface[-1]
-    if field:
-        print(f"returning data.get({field})=={data.get(field)}")
-        return data.get(field)
-    else:
-        print(f"not sure how you didn't have a field")
+@agent.sub("db.save")
+def write_data(msg):
+    with open("db.json") as fp:
+        json.dump(data, fp)
 
