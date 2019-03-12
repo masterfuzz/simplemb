@@ -1,13 +1,21 @@
 from .signature import Signature
 from .message import Message
-from .bus import NoSubscriptionError
+from .bus import NoSubscriptionError, Bus
+from typing import Callable, Dict
 import queue
 import threading
 import uuid
 import time
 
+LabelDict = Dict[str, str]
+
+ANNOTATION="__simplemb_anotation"
+SUBSCRIBE = "__simplemb_subscribe"
+REPLY = "__simplemb_reply"
+TRIGGER = "__simplemb_trigger"
+
 class Agent(threading.Thread):
-    def __init__(self, bus, labels=None, name=None):
+    def __init__(self, bus: Bus, labels: LabelDict=None, name=""):
         super().__init__()
         self.bus = bus
         self.uuid = str(uuid.uuid1())
@@ -20,11 +28,28 @@ class Agent(threading.Thread):
         self.auto_resubscribe = True
         if name:
             self.set_name(name)
+        self._process_annotated()
 
-    def set_name(self, name):
+    def _process_annotated(self):
+        for func in map(lambda k: getattr(self, k), dir(self)):
+            if hasattr(func, ANNOTATION):
+                annotation = getattr(func, ANNOTATION)
+                interface = getattr(func, "__simplemb_interface", "")
+                labels = getattr(func, "__simplemb_labels", {})
+                print(f"annotate {func}")
+                if annotation == SUBSCRIBE:
+                    self.subscribe(interface, func, labels)
+                elif annotation == REPLY:
+                    func = self.reply(interface)(func)
+                elif annotation == TRIGGER:
+                    func = self.trigger(interface, labels)(func)
+                else:
+                    raise ValueError(f"Unknown annotation {annotation}")
+
+    def set_name(self, name: str):
         self.labels['name'] = name
 
-    def _handle_agent_calls(self, msg):
+    def _handle_agent_calls(self, msg: Message):
         if len(msg.signature.interface) != 2:
             self.publish("Log", "Bad interface on received agent call")
             return
@@ -34,7 +59,7 @@ class Agent(threading.Thread):
         else:
             self.publish("Log", f"Unknown interface {func} received on agent call")
 
-    def get_remote(self, name):
+    def get_remote(self, name: str):
         return RemoteAgent(self, name)
 
     def run(self):
@@ -59,7 +84,7 @@ class Agent(threading.Thread):
                     self.resubscribe()
                 self.sleep()
 
-    def _do_callback(self, callback, message):
+    def _do_callback(self, callback: Callable, message: Message):
         thread = threading.Thread(target=callback, args=(message,))
         thread.start()
         print(f"callback thread started {thread}")
@@ -72,27 +97,29 @@ class Agent(threading.Thread):
         time.sleep(self.cur_sleep)
         self.cur_sleep = min(self.max_backoff, self.cur_sleep*2)
 
-    def subscribe(self, interface, func, labels=None, consume=True):
+    def subscribe(self, interface: str, func: Callable, labels: LabelDict=None, consume=True):
+        """ Call func when a message is received with this signature """
         sig = Signature(interface, labels, consume=consume)
         self.sigs.append((sig, func))
         self._send_subscription(sig)
 
-    def _send_subscription(self, sig):
+    def _send_subscription(self, sig: Signature):
         self.bus.subscribe(self.uuid, sig.interface, sig.labels, sig.consume)
         
     def resubscribe(self):
+        """ Resubscribe all stored signatures """
         for sig, _ in self.sigs:
             self._send_subscription(sig)
 
-    def sub(self, interface, labels=None, consume=True):
+    def on(self, interface: str, labels: dict=None, consume=True):
+        """ Set decorated function as a callback for a received message """
         def decorator(func):
-            def wrap(*args, **kwargs):
-                return func(*args, **kwargs)
             self.subscribe(interface, func, labels, consume)
-            return wrap
+            return func
         return decorator
 
-    def reply(self, interface):
+    def reply(self, interface: str):
+        """ Set decorated function as a callback for a received request message """
         def decorator(func):
             def wrap(msg):
                 self.publish(['RESULT'] + msg.signature.interface,
@@ -103,7 +130,8 @@ class Agent(threading.Thread):
             return wrap
         return decorator
 
-    def request(self, interface, callback: call=None, payload=None, labels: dict=None):
+    def request(self, interface: str, callback: Callable=None, payload=None, labels: dict=None):
+        """ Send a request and subscribe callback to the reply message """
         req = Request(callback=callback)
         labels = labels if labels else {}
         labels['reqID'] = req.request_id
@@ -112,6 +140,7 @@ class Agent(threading.Thread):
         return req
 
     def publish(self, interface: str, payload=None, labels: dict=None):
+        """ Send a message """
         if labels:
             labels.update(self.labels)
         else:
@@ -131,17 +160,18 @@ class Agent(threading.Thread):
         return decorator
 
     def call(self, interface=""):
+        """ Build a RemoteCall """
         return RemoteCall(self, interface)
 
 class RemoteAgent:
-    def __init__(self, coagent, name):
+    def __init__(self, coagent: Agent, name: str):
         self.name = name
         self.coagent = coagent
 
-    def _request(self, interface, payload=None, labels=None):
+    def _request(self, interface: str, payload=None, labels: LabelDict=None):
         return self.coagent.request(self.name + "." + interface, payload=payload, labels=labels)
 
-    def _publish(self, interface, payload=None, labels=None):
+    def _publish(self, interface: str, payload=None, labels: LabelDict=None):
         return self.coagent.publish(self.name + "." + interface, payload, labels)
 
     def __getattr__(self, attr):
@@ -183,7 +213,7 @@ class AgentPool:
             a.join()
 
 class Request:
-    def __init__(self, callback=None, request_id=None):
+    def __init__(self, callback: Callable=None, request_id: str=""):
         self.request_id = request_id if request_id else str(uuid.uuid4())
         self.result = None
         self.ready = False
@@ -203,3 +233,27 @@ class Request:
 
     def __str__(self):
         return f"Request({self.request_id})"
+
+# annotations
+def on(interface: str, labels: LabelDict=None):
+    def decorator(func):
+        func.__simplemb_anotation = SUBSCRIBE
+        func.__simplemb_interface = interface
+        func.__simplemb_labels = labels
+        return func
+    return decorator
+
+def reply(interface: str):
+    def decorator(func):
+        func.__simplemb_anotation = REPLY
+        func.__simplemb_interface = interface
+        return func
+    return decorator
+
+def trigger(interface: str, labels: LabelDict=None):
+    def decorator(func):
+        func.__simplemb_anotation = TRIGGER
+        func.__simplemb_interface = interface
+        func.__simplemb_labels = labels
+        return func
+    return decorator
