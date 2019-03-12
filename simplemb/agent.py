@@ -34,6 +34,9 @@ class Agent(threading.Thread):
         else:
             self.publish("Log", f"Unknown interface {func} received on agent call")
 
+    def get_remote(self, name):
+        return RemoteAgent(self, name)
+
     def run(self):
         self.publish("Log", "Begin polling")
         self.subscribe("Agent.**", func=self._handle_agent_calls, labels={'agentUUID': self.uuid})
@@ -100,7 +103,7 @@ class Agent(threading.Thread):
             return wrap
         return decorator
 
-    def request(self, interface, callback=None, payload=None, labels=None):
+    def request(self, interface, callback: call=None, payload=None, labels: dict=None):
         req = Request(callback=callback)
         labels = labels if labels else {}
         labels['reqID'] = req.request_id
@@ -108,12 +111,27 @@ class Agent(threading.Thread):
         self.publish(interface, payload, labels=labels)
         return req
 
-    def publish(self, interface, payload=None, labels=None):
+    def publish(self, interface: str, payload=None, labels: dict=None):
         if labels:
             labels.update(self.labels)
         else:
             labels = self.labels
         return self.bus.publish(Message(payload=payload, signature=Signature(interface, labels), source=self.uuid))
+
+    def trigger(self, interface: str, labels: dict=None):
+        """
+        Trigger a message on interface with payload from the return value of the decorated function
+        """
+        def decorator(func):
+            def wrap(*args, **kwargs):
+                result = func(*args, **kwargs)
+                self.publish(interface, payload=result, labels=labels)
+                return result
+            return wrap
+        return decorator
+
+    def call(self, interface=""):
+        return RemoteCall(self, interface)
 
 class RemoteAgent:
     def __init__(self, coagent, name):
@@ -135,9 +153,9 @@ class RemoteCall:
         self.interface = interface
 
     def __call__(self, payload=None, **labels):
-        self.coagent.publish(self.interface, payload=payload, labels=labels)
+        return self.coagent.publish(self.interface, payload=payload, labels=labels)
 
-    def request(self, payload=None, **labels):
+    def as_request(self, payload=None, **labels):
         return self.coagent.request(self.interface, payload=payload, labels=labels)
 
     def __getattr__(self, attr):
