@@ -39,7 +39,7 @@ class RestBusClient:
         while True:
             try:
                 res = self.ses.send(req)
-                return
+                return res
             except:
                 print("exception communicating with the bus. retry")
             time.sleep(self.retry)

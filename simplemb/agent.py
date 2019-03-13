@@ -1,6 +1,7 @@
 from .signature import Signature
 from .message import Message
 from .bus import NoSubscriptionError, Bus
+from .annotation import ANNOTATION, INTERFACE, LABELS, SUBSCRIBE, REPLY, TRIGGER
 from typing import Callable, Dict
 import queue
 import threading
@@ -9,10 +10,6 @@ import time
 
 LabelDict = Dict[str, str]
 
-ANNOTATION="__simplemb_anotation"
-SUBSCRIBE = "__simplemb_subscribe"
-REPLY = "__simplemb_reply"
-TRIGGER = "__simplemb_trigger"
 
 class Agent(threading.Thread):
     def __init__(self, bus: Bus, labels: LabelDict=None, name=""):
@@ -34,9 +31,8 @@ class Agent(threading.Thread):
         for func in map(lambda k: getattr(self, k), dir(self)):
             if hasattr(func, ANNOTATION):
                 annotation = getattr(func, ANNOTATION)
-                interface = getattr(func, "__simplemb_interface", "")
-                labels = getattr(func, "__simplemb_labels", {})
-                print(f"annotate {func}")
+                interface = getattr(func, INTERFACE, "")
+                labels = getattr(func, LABELS, {})
                 if annotation == SUBSCRIBE:
                     self.subscribe(interface, func, labels)
                 elif annotation == REPLY:
@@ -76,7 +72,6 @@ class Agent(threading.Thread):
                 else:
                     self.sleep()
             except queue.Empty:
-                #print(f"empty queue sleep {self.cur_sleep}")
                 self.sleep()
             except NoSubscriptionError:
                 print("NoSubscription!")
@@ -91,7 +86,6 @@ class Agent(threading.Thread):
 
     def stop(self):
         self.live = False
-        # self.join()
 
     def sleep(self):
         time.sleep(self.cur_sleep)
@@ -233,27 +227,3 @@ class Request:
 
     def __str__(self):
         return f"Request({self.request_id})"
-
-# annotations
-def on(interface: str, labels: LabelDict=None):
-    def decorator(func):
-        func.__simplemb_anotation = SUBSCRIBE
-        func.__simplemb_interface = interface
-        func.__simplemb_labels = labels
-        return func
-    return decorator
-
-def reply(interface: str):
-    def decorator(func):
-        func.__simplemb_anotation = REPLY
-        func.__simplemb_interface = interface
-        return func
-    return decorator
-
-def trigger(interface: str, labels: LabelDict=None):
-    def decorator(func):
-        func.__simplemb_anotation = TRIGGER
-        func.__simplemb_interface = interface
-        func.__simplemb_labels = labels
-        return func
-    return decorator
