@@ -1,0 +1,6 @@
+ANNOTATION="__simplemb_anotation"
+SUBSCRIBE = "__simplemb_subscribe"
+REPLY = "__simplemb_reply"
+TRIGGER = "__simplemb_trigger"
+INTERFACE = "__simplemb_interface"
+LABELS = "__simplemb_labels"

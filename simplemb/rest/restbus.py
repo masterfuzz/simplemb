@@ -1,10 +1,8 @@
+import queue
+from bottle import run, get, put, request, abort
 from ..bus import Bus, NoSubscriptionError
 from ..message import Message
 from ..busctl import BusCtlAgent
-
-import queue
-import bottle
-from bottle import get, put, request, abort
 
 bus = Bus()
 busctl = BusCtlAgent(bus)
@@ -25,7 +23,7 @@ def poll(sub_id):
 
 @put('/pub/<interface>')
 def publish(interface):
-    message_dict = request.json
+    message_dict = dict(request.json)
     message_dict['interface'] = interface
     msg = Message.from_dict(message_dict)
     print(f"publish {msg}")
@@ -35,13 +33,13 @@ def publish(interface):
 
 @put('/sub/<sub_id>')
 def subscribe(sub_id):
-    signature_dict = request.json
+    signature_dict = dict(request.json)
     bus.subscribe(sub_id, signature_dict.get("interface"), 
         signature_dict.get("labels"), signature_dict.get("consume"))
 
-def run(host='localhost', port=8000):
-    bottle.run(host=host, port=port)
+def main(host='localhost', port=8000):
+    run(host=host, port=port)
 
 
 if __name__ == "__main__":
-    run()
+    main()

@@ -1,13 +1,8 @@
 from typing import Dict
-LabelDict = Dict[str,str]
-ANNOTATION="__simplemb_anotation"
-SUBSCRIBE = "__simplemb_subscribe"
-REPLY = "__simplemb_reply"
-TRIGGER = "__simplemb_trigger"
-INTERFACE = "__simplemb_interface"
-LABELS = "__simplemb_labels"
+from .annotation_constants import SUBSCRIBE, REPLY, TRIGGER
+__LabelDict = Dict[str,str]
 
-def on(interface: str, labels: LabelDict=None):
+def on(interface: str=None, labels: __LabelDict=None):
     def decorator(func):
         func.__simplemb_anotation = SUBSCRIBE
         func.__simplemb_interface = interface
@@ -15,14 +10,14 @@ def on(interface: str, labels: LabelDict=None):
         return func
     return decorator
 
-def reply(interface: str):
+def reply(interface: str=None):
     def decorator(func):
         func.__simplemb_anotation = REPLY
         func.__simplemb_interface = interface
         return func
     return decorator
 
-def trigger(interface: str, labels: LabelDict=None):
+def trigger(interface: str=None, labels: __LabelDict=None):
     def decorator(func):
         func.__simplemb_anotation = TRIGGER
         func.__simplemb_interface = interface

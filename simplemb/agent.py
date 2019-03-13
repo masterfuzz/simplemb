@@ -1,7 +1,7 @@
 from .signature import Signature
 from .message import Message
 from .bus import NoSubscriptionError, Bus
-from .annotation import ANNOTATION, INTERFACE, LABELS, SUBSCRIBE, REPLY, TRIGGER
+from .annotation_constants import *
 from typing import Callable, Dict
 import queue
 import threading
@@ -24,14 +24,16 @@ class Agent(threading.Thread):
         self.labels = labels if labels else {}
         self.auto_resubscribe = True
         if name:
-            self.set_name(name)
+            self.name = name
         self._process_annotated()
 
     def _process_annotated(self):
-        for func in map(lambda k: getattr(self, k), dir(self)):
+        for name, func in map(lambda k: (k, getattr(self, k)), dir(self)):
             if hasattr(func, ANNOTATION):
                 annotation = getattr(func, ANNOTATION)
                 interface = getattr(func, INTERFACE, "")
+                if not interface:
+                    interface = f"{self.name}.{name}"
                 labels = getattr(func, LABELS, {})
                 if annotation == SUBSCRIBE:
                     self.subscribe(interface, func, labels)
@@ -42,7 +44,12 @@ class Agent(threading.Thread):
                 else:
                     raise ValueError(f"Unknown annotation {annotation}")
 
-    def set_name(self, name: str):
+    @property
+    def name(self):
+        return self.labels.get("name", self.__class__.__name__)
+
+    @name.setter
+    def name(self, name: str):
         self.labels['name'] = name
 
     def _handle_agent_calls(self, msg: Message):
