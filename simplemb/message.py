@@ -25,6 +25,10 @@ class Message:
                 "labels": self.signature.labels,
                 "source": self.source}
 
+    @property
+    def labels(self):
+        return {'_INTERFACE': ".".join(self.signature.interface), '_SOURCE': self.source, **self.signature.labels}
+
 class DebugMessage(Message):
     def __init__(self, msg):
         super().__init__(msg, Signature("DEBUG"), source="ROOT")
