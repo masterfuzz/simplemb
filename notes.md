@@ -72,3 +72,15 @@ LabelMatch:
 One queue per "different" subscription.
     a subscription is different if the Path and the Labels are different
     
+
+# Some DSL ideas...
+
+* I want to "ask" remote services "questions"
+* I want to "tell" remote services facts and "respond" to their questions
+* i want to inform a group of interested services of events
+..
+
+
+# Event model
+
+
