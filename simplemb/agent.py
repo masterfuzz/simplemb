@@ -3,10 +3,14 @@ from .message import Message
 from .bus import NoSubscriptionError, Bus
 from .annotation_constants import *
 from typing import Callable, Dict
+import logging
 import queue
 import threading
 import uuid
 import time
+
+log = logging.getLogger("agent")
+log.addHandler(logging.NullHandler())
 
 LabelDict = Dict[str, str]
 
@@ -17,7 +21,7 @@ class Agent(threading.Thread):
         self.bus = bus
         self.uuid = str(uuid.uuid1())
         self.sigs = []
-        self.live = True
+        self.stopped = threading.Event()
         self.max_backoff = 0.1
         self.min_sleep = 0.01
         self.cur_sleep = self.min_sleep
@@ -35,12 +39,14 @@ class Agent(threading.Thread):
                 if not interface:
                     interface = f"{self.name}.{name}"
                 labels = getattr(func, LABELS, {})
+                if labels is None:
+                    labels = {}
                 if annotation == SUBSCRIBE:
-                    self.subscribe(interface, func, labels)
+                    self.subscribe(interface, func, **labels)
                 elif annotation == REPLY:
                     func = self.reply(interface)(func)
                 elif annotation == TRIGGER:
-                    func = self.trigger(interface, labels)(func)
+                    func = self.trigger(interface, **labels)(func)
                 else:
                     raise ValueError(f"Unknown annotation {annotation}")
 
@@ -68,7 +74,7 @@ class Agent(threading.Thread):
     def run(self):
         self.publish("Log", "Begin polling")
         self.subscribe("Agent.**", func=self._handle_agent_calls, labels={'agentUUID': self.uuid})
-        while self.live:
+        while not self.stopped.is_set():
             try:
                 msg = self.bus.poll(self.uuid)
                 if msg:
@@ -81,24 +87,24 @@ class Agent(threading.Thread):
             except queue.Empty:
                 self.sleep()
             except NoSubscriptionError:
-                print("NoSubscription!")
+                log.error("NoSubscription!")
                 if self.auto_resubscribe:
                     self.resubscribe()
                 self.sleep()
 
     def _do_callback(self, callback: Callable, message: Message):
-        thread = threading.Thread(target=callback, args=(message,))
+        thread = threading.Thread(target=callback, args=(message.payload,), kwargs=message.labels)
         thread.start()
-        print(f"callback thread started {thread}")
+        log.debug(f"callback thread started {thread}")
 
     def stop(self):
-        self.live = False
+        self.stopped.set()
 
     def sleep(self):
         time.sleep(self.cur_sleep)
         self.cur_sleep = min(self.max_backoff, self.cur_sleep*2)
 
-    def subscribe(self, interface: str, func: Callable, labels: LabelDict=None, consume=True):
+    def subscribe(self, interface: str, func: Callable, consume=True, **labels: LabelDict):
         """ Call func when a message is received with this signature """
         sig = Signature(interface, labels, consume=consume)
         self.sigs.append((sig, func))
@@ -112,12 +118,32 @@ class Agent(threading.Thread):
         for sig, _ in self.sigs:
             self._send_subscription(sig)
 
-    def on(self, interface: str, labels: dict=None, consume=True):
+    def on(self, interface: str, consume=True, **labels):
         """ Set decorated function as a callback for a received message """
         def decorator(func):
-            self.subscribe(interface, func, labels, consume)
+            self.subscribe(interface, func, consume, **labels)
             return func
         return decorator
+
+    def wait(self, interface, timeout=None):
+        cond = threading.Condition()
+        result = None
+        def callback(*args,**kwargs):
+            result = (args, kwargs)
+            cond.notify()
+        cond.acquire()
+        self.subscribe(interface, callback)
+        if cond.wait(timeout):
+            return result
+        else:
+            raise queue.Empty()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.stop()
 
     def reply(self, interface: str):
         """ Set decorated function as a callback for a received request message """
@@ -131,16 +157,15 @@ class Agent(threading.Thread):
             return wrap
         return decorator
 
-    def request(self, interface: str, callback: Callable=None, payload=None, labels: dict=None):
+    def request(self, interface: str, callback: Callable=None, payload=None, **labels):
         """ Send a request and subscribe callback to the reply message """
         req = Request(callback=callback)
-        labels = labels if labels else {}
         labels['reqID'] = req.request_id
         self.subscribe('RESULT.'+interface, req.set_result, labels={'reqID': req.request_id})
         self.publish(interface, payload, labels=labels)
         return req
 
-    def publish(self, interface: str, payload=None, labels: dict=None):
+    def publish(self, interface: str, payload=None, **labels):
         """ Send a message """
         if labels:
             labels.update(self.labels)
@@ -148,7 +173,7 @@ class Agent(threading.Thread):
             labels = self.labels
         return self.bus.publish(Message(payload=payload, signature=Signature(interface, labels), source=self.uuid))
 
-    def trigger(self, interface: str, labels: dict=None):
+    def trigger(self, interface: str, **labels):
         """
         Trigger a message on interface with payload from the return value of the decorated function
         """
@@ -224,7 +249,7 @@ class Request:
         self.result = result
         self.ready = True
         if self.callback:
-            self.callback(result)
+            self.callback(result.payload, **result.labels)
 
     def join(self):
         while True:
